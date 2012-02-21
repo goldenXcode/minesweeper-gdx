@@ -4,18 +4,20 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.alex.games.minesweeper.screen.GameScreen;
+
 public class DieAnimation {
 	private LinkedList<Mine> mines;
 	private int numMines = 1;
-	private static final float MAX_TIME = Minesweeper.FRAME_TIME * Minesweeper.EXPLOSION_FRAMES;
+	private static final float MAX_TIME = GameScreen.FRAME_TIME * GameScreen.EXPLOSION_FRAMES;
 	private float updateTime = 0.8f;
 	private float currentTime = 0f;
 	private int[][] matrix;
 	
 	public class Mine {
-		final int x;
-		final int y;	
-		float timeState;
+		public final int x;
+		public final int y;	
+		public float timeState;
 		public Mine(int x, int y) { this.x = x; this.y = y; }
 		public String toString() {
 			StringBuilder sb = new StringBuilder();
@@ -122,7 +124,7 @@ public class DieAnimation {
 		currentTime += deltaTime;
 		if (currentTime >= updateTime) {
 			currentTime = 0f;
-			updateTime -= Minesweeper.FRAME_TIME;
+			updateTime -= GameScreen.FRAME_TIME;
 			numMines++;
 		}
 		
