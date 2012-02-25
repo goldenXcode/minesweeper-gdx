@@ -11,18 +11,10 @@ public class Minesweeper extends Game {
 
 	public static final Logger Log = new Logger("Minesweeper");
 // TODO add high scores
-// TODO Manage application lifecycle in android (when quitting the state is lost)
 // TODO Add ads
-	private GameScreen gameScreen;
-	private MenuScreen menuScreen;
-	
 	@Override
 	public void create() {
-		gameScreen = new GameScreen(this);
-		menuScreen = new MenuScreen(this);
-		gameScreen.setNextScreen(menuScreen);
-		menuScreen.setNextScreen(gameScreen);
-		setScreen(gameScreen);
+		setScreen(new GameScreen(this));
 		Log.setLevel(Logger.DEBUG);
 		Gdx.app.setLogLevel(Application.LOG_DEBUG);
 	}
