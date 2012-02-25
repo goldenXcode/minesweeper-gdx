@@ -31,15 +31,17 @@ public class GameScreen implements Screen {
 	
 	private SpriteBatch spriteBatch;
 	
-	private TextureRegion button;
-	private TextureRegion mine;
-	private TextureRegion brokenMine;
-	private TextureRegion pressedButton;
-	private TextureRegion flag;
-	private TextureRegion shovel;
-	private TextureRegion[] smiley;
-
-	private NinePatch counter;
+	private final TextureRegion grass;
+	private final TextureRegion mine;
+	private final TextureRegion brokenMine;
+	private final TextureRegion earth;
+	private final TextureRegion flag;
+	private final TextureRegion shovel;
+	private final TextureRegion[] smiley;
+	private final TextureRegion button;
+	private final TextureRegion pressedButton;
+	
+	private final NinePatch dialog;
 	
 	private BitmapFont font;
 	
@@ -51,20 +53,22 @@ public class GameScreen implements Screen {
 	private boolean flagMode = false;
 	
 	// Coordinates for the objects
-	private int CellSize;
-	private int HalfCell;
-	private int ControlHeight; // Vertical space reserved for the game controls
-	private int baseX;
-	private int baseY;
-	private int gameWidth;
-	private int gameHeight;
+	private final int CellSize;
+	private final int HalfCell;
+	private final int ControlHeight; // Vertical space reserved for the game controls
+	private final int baseX;
+	private final int baseY;
+	private final int gameWidth;
+	private final int gameHeight;
 	// Minefield box	
-	private Box mineField;
-	private Box flagBox;
-	private Box shovelBox;
-	private Box smileBox;
-	private Box counterBox;
-	private Box timerBox;
+	private final Box mineField;
+	private final Box flagBox;
+	private final Box shovelBox;
+	private final Box smileBox;
+	private final Box counterBox;
+	private final Box timerBox;
+	private final Box yesBox;
+	private final Box noBox;
 	
 	private int gameState = NEW;
 	private int numMines;
@@ -78,28 +82,37 @@ public class GameScreen implements Screen {
 	private DieAnimation dieAnimation;
 	private float tFontPad;
 	
-	private final Game game;
-	private Screen nextScreen;
 	private boolean isPaused;
 	
+	private CharSequence quitText = "Are you sure you want to exit?";
+	private NinePatch button2;
+	
 	public GameScreen(Game game) {
-		this.game = game;
 		int w = Gdx.app.getGraphics().getWidth();
 		int h = Gdx.app.getGraphics().getHeight();
 		//float aspectRatio = h/w;
 		// Define cell size. This will define the resolution of the textures and the coordinates of everything in the game
-		CellSize = 40;
+		if (w/cellWidth >= 42 ) { 
+			CellSize = 42;
+		}
+		else {
+			CellSize = 32;
+		}
+		
 		HalfCell = CellSize / 2;
+		ControlHeight = CellSize*3;
 		int boxSize = CellSize + HalfCell;
 		// Load & prepare textures
 		spriteBatch = new SpriteBatch();
 		TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("data/textures/pack"), Gdx.files.internal("data/textures/"));
-		button = atlas.findRegion("tile");
+		grass = atlas.findRegion("grass2");
 		
-		button.getTexture().setFilter(TextureFilter.Linear, TextureFilter.Linear);
+		grass.getTexture().setFilter(TextureFilter.Linear, TextureFilter.Linear);
+		button = atlas.findRegion("tile2");
+		pressedButton = atlas.findRegion("pressedTile2");
 		mine = atlas.findRegion("mine");
 		brokenMine = atlas.findRegion("mine2");
-		pressedButton = atlas.findRegion("pressedTile");
+		earth = atlas.findRegion("earth2");
 		flag = atlas.findRegion("flag");
 		shovel = atlas.findRegion("shovel");
 		font = new BitmapFont(Gdx.files.internal("data/font16.fnt"), Gdx.files.internal("data/font16.png"), false);
@@ -115,8 +128,8 @@ public class GameScreen implements Screen {
 			atlas.findRegion("Smiley4")
 		};
 			
-		counter = new NinePatch(atlas.findRegion("counter"),6,6,6,6);
-		
+		dialog = new NinePatch(atlas.findRegion("dialog"),10,10,10,10);
+		button2 = new NinePatch(atlas.findRegion("tile2"),5,5,5,5);
 		loadExplosion();
 		
 		// Calculate decoration coordinates
@@ -151,6 +164,13 @@ public class GameScreen implements Screen {
 						   flagBox.xe + CellSize*2, 
 						   shovelBox.yo, 
 						   shovelBox.ye);
+		
+		yesBox = new Box(mineField.xo + 4*CellSize, 
+						 mineField.xe - 4*CellSize,
+						 mineField.yo + 4*CellSize,
+						 mineField.yo + 5*CellSize);
+		
+		noBox = new Box(yesBox.xo, yesBox.xe, yesBox.ye + CellSize, yesBox.ye + CellSize + CellSize);
 		
 		tFontPad = (CellSize + timeFont.getCapHeight())/2;
 		// TODO Reset or resume?
@@ -194,30 +214,32 @@ public class GameScreen implements Screen {
 		
 		spriteBatch.begin();
 		
+		dialog.draw(spriteBatch, mineField.xo - 5, mineField.yo - 5, mineField.w + 10, mineField.h + 10);
 		for (int i=0; i<matrix.length; i++) {
 			for (int j=0; j<matrix[0].length; j++) {
 				int value = matrix[i][j];
 				int x = j*CellSize + mineField.xo;
 				int y = i*CellSize + mineField.yo;
 				if (value > 9) {
-					spriteBatch.draw(button, x, y, CellSize, CellSize);
+					spriteBatch.draw(grass, x, y, CellSize, CellSize);
 					
 					if (value > 19) spriteBatch.draw(flag, x, y, CellSize, CellSize);
 				}
-				else if ( value == 9) {
-					spriteBatch.draw(mine, x, y, CellSize, CellSize);
-				}
-				else if ( value == -1) {
-					spriteBatch.draw(brokenMine, x, y, CellSize, CellSize);
-				}
-				else if (value == 0) {
-					spriteBatch.draw(pressedButton, x, y, CellSize, CellSize);
-				}
 				else {
-					spriteBatch.draw(pressedButton, x, y, CellSize, CellSize);
-					String text = Integer.toString(matrix[i][j]);
-					font.draw(spriteBatch, text, x + CellSize/3, y + CellSize);
+					spriteBatch.draw(earth, x, y, CellSize, CellSize);
+					
+					if ( value == 9) {
+						spriteBatch.draw(mine, x, y, CellSize, CellSize);
+					}
+					else if ( value == -1) {
+						spriteBatch.draw(brokenMine, x, y, CellSize, CellSize);
+					}
+					else if (value != 0) {
+						String text = Integer.toString(matrix[i][j]);
+						font.draw(spriteBatch, text, x + CellSize/3, y + CellSize);
+					}
 				}
+				
 			}
 		}
 		
@@ -232,7 +254,8 @@ public class GameScreen implements Screen {
 		// Draw Controls
 		if (flagMode ) {
 			spriteBatch.draw(pressedButton, flagBox.xo, flagBox.yo, CellSize, CellSize);
-			spriteBatch.draw(button, shovelBox.xo, shovelBox.yo, CellSize, CellSize);
+			button2.draw(spriteBatch, shovelBox.xo, shovelBox.yo, CellSize, CellSize);
+			//spriteBatch.draw(button, shovelBox.xo, shovelBox.yo, CellSize, CellSize);
 		} 
 		else {
 			spriteBatch.draw(button, flagBox.xo, flagBox.yo, CellSize, CellSize);
@@ -244,21 +267,49 @@ public class GameScreen implements Screen {
 		spriteBatch.draw(button, smileBox.xo, smileBox.yo, CellSize, CellSize);
 		spriteBatch.draw(smiley[gameState], smileBox.xo, smileBox.yo, CellSize, CellSize);
 		
-		counter.draw(spriteBatch, counterBox.xo, counterBox.yo, counterBox.w, counterBox.h);
-		counter.draw(spriteBatch, timerBox.xo, timerBox.yo, timerBox.w, timerBox.h);
+		dialog.draw(spriteBatch, counterBox.xo, counterBox.yo, counterBox.w, counterBox.h);
+		dialog.draw(spriteBatch, timerBox.xo, timerBox.yo, timerBox.w, timerBox.h);
 		
 		String text = Integer.toString(numMines);
-		timeFont.draw(spriteBatch, text, counterBox.xo + 21 + 16 - (text.length()<<3), counterBox.yo + tFontPad);
+		timeFont.drawMultiLine(spriteBatch, text, counterBox.xo + 10, 
+							   counterBox.yo + tFontPad, counterBox.w - 20, 
+							   BitmapFont.HAlignment.RIGHT);
 		
-		if (isTimerRunning) {
+		if (isTimerRunning && !isPaused) {
 			time += delta;
 		}
 		text = Integer.toString((int) time);
-		timeFont.draw(spriteBatch, text, timerBox.xo + 21 + 16 - (text.length()<<3), timerBox.yo + tFontPad);
+		timeFont.drawMultiLine(spriteBatch, text, timerBox.xo + 10, 
+							   timerBox.yo + tFontPad, timerBox.w - 20,
+							   BitmapFont.HAlignment.RIGHT);
 		
+		if (isPaused) {
+			dialog.draw(spriteBatch, mineField.xo+CellSize, 
+								  mineField.yo+CellSize, 
+								  mineField.w-(CellSize*2), 
+								  mineField.h-(CellSize*2));
+		
+			timeFont.setColor(Color.BLUE);
+			timeFont.drawMultiLine(spriteBatch, quitText, mineField.xo + CellSize*2, 
+							   mineField.ye - (CellSize*2), mineField.w - CellSize*4, 
+							   BitmapFont.HAlignment.CENTER);
+		
+			button2.draw(spriteBatch, yesBox.xo, yesBox.yo, yesBox.w, yesBox.h);
+		
+			button2.draw(spriteBatch, noBox.xo, noBox.yo, noBox.w, noBox.h);
+			timeFont.drawMultiLine(spriteBatch, "Yes", yesBox.xo + 5, 
+					   				yesBox.ye - 10, yesBox.w - 10, 
+					   				BitmapFont.HAlignment.CENTER);
+			
+			timeFont.drawMultiLine(spriteBatch, "No", noBox.xo + 5, 
+	   								noBox.ye - 10, noBox.w - 10, 
+	   								BitmapFont.HAlignment.CENTER);
+			
+			timeFont.setColor(Color.RED);
+		}
 		spriteBatch.end();
 		
-		// Sleep to fix framerate, save battery
+		// Sleep to fix frame rate, save battery
 		long renderTime = System.currentTimeMillis() - start;
 		if (renderTime < FrameTime) {
 			try {
@@ -292,17 +343,13 @@ public class GameScreen implements Screen {
 		Gdx.input.setCatchBackKey(true);
 		Gdx.graphics.getGL10().glClearColor(.9f, .9f, .9f, 1f);	
 	}
-
-	public void setNextScreen(Screen screen) {
-		nextScreen = screen;
-	}
 	
 	private void update(float delta) {
 		Input in = Gdx.app.getInput();
 		
 		if (in.isKeyPressed(Input.Keys.BACK)) {
 			isPaused = true;
-			System.out.println("Pause button");
+			Minesweeper.Log.debug("Pause button");
 			return;
 		}
 		
@@ -315,14 +362,22 @@ public class GameScreen implements Screen {
 		if (in.justTouched()) {
 			int x = in.getX();
 			int y = H - in.getY();
-			if (smileBox.contains(x, y)) {
+			
+			if (isPaused) {
+				if (yesBox.contains(x, y)) {
+					Gdx.app.exit();
+				}
+				else if (noBox.contains(x, y)) {
+					isPaused = false;
+				}
+			}
+			else if (smileBox.contains(x, y)) {
 				clearGame();
+			}
+			else if (gameState == LOSE || gameState == WIN) {
 				return;
 			}
-			if (gameState == LOSE || gameState == WIN) {
-				return;
-			}
-			if (mineField.subContains(x,y)) {
+			else if (mineField.subContains(x,y)) {
 				x = (x - mineField.xo) / CellSize;
 				y = (y - mineField.yo) / CellSize;
 				if (!isTimerRunning) {
@@ -378,6 +433,7 @@ public class GameScreen implements Screen {
 		gameState = NEW;
 		time = 0;
 		isTimerRunning = false;
+		displayExp = false;
 	}
 	
 	/**
