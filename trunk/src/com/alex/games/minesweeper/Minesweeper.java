@@ -10,7 +10,7 @@ import com.badlogic.gdx.utils.Logger;
 public class Minesweeper extends Game {
 
 	public static final Logger Log = new Logger("Minesweeper");
-// TODO add high scores
+	public static final String PREF_NAME = "Minesweeper";
 // TODO Add ads
 	@Override
 	public void create() {

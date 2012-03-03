@@ -1,5 +1,7 @@
 package com.alex.games.minesweeper.screen;
 
+import java.util.TreeSet;
+
 import com.alex.games.minesweeper.DieAnimation;
 import com.alex.games.minesweeper.DieAnimation.Mine;
 import com.alex.games.minesweeper.Minesweeper;
@@ -18,6 +20,7 @@ import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.BitmapFont.HAlignment;
 
 public class GameScreen implements Screen {
 
@@ -28,6 +31,7 @@ public class GameScreen implements Screen {
 	public static final float FRAME_TIME = 0.08f;
 	public static final float EXPLOSION_FRAMES = 13;
 	private static final long FrameTime = 33;
+	private static final int MAX_SCORES = 6;
 	
 	private SpriteBatch spriteBatch;
 	
@@ -69,6 +73,7 @@ public class GameScreen implements Screen {
 	private final Box timerBox;
 	private final Box yesBox;
 	private final Box noBox;
+	private final Box scoreBox;
 	
 	private int gameState = NEW;
 	private int numMines;
@@ -86,12 +91,16 @@ public class GameScreen implements Screen {
 	
 	private CharSequence quitText = "Are you sure you want to exit?";
 	private NinePatch button2;
+	private boolean showHighScores = true;
+	TreeSet<Integer> scores = new TreeSet<Integer>();
+	private Preferences prefs;
 	
 	public GameScreen(Game game) {
 		int w = Gdx.app.getGraphics().getWidth();
 		int h = Gdx.app.getGraphics().getHeight();
 		//float aspectRatio = h/w;
-		// Define cell size. This will define the resolution of the textures and the coordinates of everything in the game
+		// Define cell size. This will define the resolution of the textures 
+		// and the coordinates of everything in the game
 		if (w/cellWidth >= 42 ) { 
 			CellSize = 42;
 		}
@@ -104,7 +113,8 @@ public class GameScreen implements Screen {
 		int boxSize = CellSize + HalfCell;
 		// Load & prepare textures
 		spriteBatch = new SpriteBatch();
-		TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("data/textures/pack"), Gdx.files.internal("data/textures/"));
+		TextureAtlas atlas = new TextureAtlas(Gdx.files.internal("data/textures/pack"), 
+											  Gdx.files.internal("data/textures/"));
 		grass = atlas.findRegion("grass2");
 		
 		grass.getTexture().setFilter(TextureFilter.Linear, TextureFilter.Linear);
@@ -115,7 +125,9 @@ public class GameScreen implements Screen {
 		earth = atlas.findRegion("earth2");
 		flag = atlas.findRegion("flag");
 		shovel = atlas.findRegion("shovel");
-		font = new BitmapFont(Gdx.files.internal("data/font16.fnt"), Gdx.files.internal("data/font16.png"), false);
+		font = new BitmapFont(Gdx.files.internal("data/font16.fnt"), 
+							  Gdx.files.internal("data/font16.png"), false);
+		
 		timeFont = new BitmapFont(false);
 		timeFont.setColor(Color.RED);
 		float scale = CellSize/32.f;
@@ -172,9 +184,20 @@ public class GameScreen implements Screen {
 		
 		noBox = new Box(yesBox.xo, yesBox.xe, yesBox.ye + CellSize, yesBox.ye + CellSize + CellSize);
 		
+		scoreBox = new Box(mineField.xo + (int) (CellSize * 2.1), 
+						   mineField.xe - (int) (CellSize * 2.1), 
+						   mineField.yo + (int) (CellSize * 0.6), 
+						   mineField.ye - (int) (CellSize * 0.6));
+		
 		tFontPad = (CellSize + timeFont.getCapHeight())/2;
 		// TODO Reset or resume?
 		clearGame();
+		
+		prefs = Gdx.app.getPreferences(Minesweeper.PREF_NAME);
+		
+		for (int i=0; i<MAX_SCORES; i++) {
+			scores.add(prefs.getInteger("score"+i, 1000+i));
+		}
 	}
 	
 	@Override
@@ -185,24 +208,13 @@ public class GameScreen implements Screen {
 
 	@Override
 	public void hide() {
-		Minesweeper.Log.debug("Hide...");/*
-		String matrixString = toString(matrix);
-		Preferences prefs = Gdx.app.getPreferences("a-minesweeper");
-		prefs.putString("matrix", matrixString);
-		prefs.flush();
-		*/
+		Minesweeper.Log.debug("Hide...");
 	}
 
 	@Override
 	public void pause() {
 		Minesweeper.Log.debug("Pause...");
 		Gdx.input.setCatchBackKey(false);
-		/*
-		String matrixString = toString(matrix);
-		Preferences prefs = Gdx.app.getPreferences("a-minesweeper");
-		prefs.putString("matrix", matrixString);
-		prefs.flush();
-		*/
 	}
 
 	@Override
@@ -251,7 +263,91 @@ public class GameScreen implements Screen {
 			}
 		}
 		
-		// Draw Controls
+		drawControls(delta);
+		
+		if (isPaused) {
+			dialog.draw(spriteBatch, mineField.xo+CellSize, 
+								  mineField.yo+CellSize, 
+								  mineField.w-(CellSize*2), 
+								  mineField.h-(CellSize*2));
+		
+			timeFont.setColor(Color.BLUE);
+			timeFont.drawMultiLine(spriteBatch, quitText, mineField.xo + CellSize*2, 
+							   mineField.ye - (CellSize*2), mineField.w - CellSize*4, 
+							   BitmapFont.HAlignment.CENTER);
+		
+			button2.draw(spriteBatch, yesBox.xo, yesBox.yo, yesBox.w, yesBox.h);
+		
+			button2.draw(spriteBatch, noBox.xo, noBox.yo, noBox.w, noBox.h);
+			timeFont.drawMultiLine(spriteBatch, "Yes", yesBox.xo + 5, 
+					   				yesBox.ye - 10, yesBox.w - 10, 
+					   				BitmapFont.HAlignment.CENTER);
+			
+			timeFont.drawMultiLine(spriteBatch, "No", noBox.xo + 5, 
+	   								noBox.ye - 10, noBox.w - 10, 
+	   								BitmapFont.HAlignment.CENTER);
+			
+			timeFont.setColor(Color.RED);
+		}
+		
+		if (showHighScores) {
+			drawHighScores();
+		}
+		spriteBatch.end();
+		
+		// Sleep to fix frame rate, save battery
+		long renderTime = System.currentTimeMillis() - start;
+		if (renderTime < FrameTime) {
+			try {
+				Thread.sleep(FrameTime-renderTime);
+			} catch (InterruptedException e) {}
+		}
+	}
+
+	@Override
+	public void resize(int w, int h) {
+		Minesweeper.Log.debug("Resize");
+	}
+
+	@Override
+	public void resume() {
+		Minesweeper.Log.debug("Resume...");
+		Gdx.input.setCatchBackKey(true);
+		Gdx.graphics.getGL10().glClearColor(.9f, .9f, .9f, 1f);
+	}
+
+	@Override
+	public void show() {
+		Minesweeper.Log.debug("Show");
+		Gdx.input.setCatchBackKey(true);
+		Gdx.graphics.getGL10().glClearColor(.9f, .9f, .9f, 1f);	
+	}
+	
+	private void drawHighScores() {
+		dialog.draw(spriteBatch, scoreBox.xo, scoreBox.yo, scoreBox.w, scoreBox.h);
+		float y = scoreBox.ye - CellSize;
+		timeFont.drawMultiLine(spriteBatch, "High Scores", scoreBox.xo, y, 
+								scoreBox.w, HAlignment.CENTER);
+		y -= CellSize;
+		int pos = 1;
+		for(Integer i:scores) {
+			if (((int) time) == i) {
+				dialog.draw(spriteBatch, 
+							scoreBox.xo + 0.6f*CellSize, 
+							y-(3*HalfCell)/2, 
+							scoreBox.w - 1.2f*CellSize, 
+							CellSize);
+			}
+			timeFont.drawMultiLine(spriteBatch, Integer.toString(pos++), 
+					scoreBox.xo + 0.7f*CellSize, y, scoreBox.w, HAlignment.LEFT);
+			
+			timeFont.drawMultiLine(spriteBatch, i.toString(), 
+					scoreBox.xo, y, scoreBox.w, HAlignment.CENTER);
+			y -= CellSize;
+		}
+	}
+
+	private void drawControls(float delta) {
 		if (flagMode ) {
 			spriteBatch.draw(pressedButton, flagBox.xo, flagBox.yo, CellSize, CellSize);
 			button2.draw(spriteBatch, shovelBox.xo, shovelBox.yo, CellSize, CellSize);
@@ -282,68 +378,8 @@ public class GameScreen implements Screen {
 		timeFont.drawMultiLine(spriteBatch, text, timerBox.xo + 10, 
 							   timerBox.yo + tFontPad, timerBox.w - 20,
 							   BitmapFont.HAlignment.RIGHT);
-		
-		if (isPaused) {
-			dialog.draw(spriteBatch, mineField.xo+CellSize, 
-								  mineField.yo+CellSize, 
-								  mineField.w-(CellSize*2), 
-								  mineField.h-(CellSize*2));
-		
-			timeFont.setColor(Color.BLUE);
-			timeFont.drawMultiLine(spriteBatch, quitText, mineField.xo + CellSize*2, 
-							   mineField.ye - (CellSize*2), mineField.w - CellSize*4, 
-							   BitmapFont.HAlignment.CENTER);
-		
-			button2.draw(spriteBatch, yesBox.xo, yesBox.yo, yesBox.w, yesBox.h);
-		
-			button2.draw(spriteBatch, noBox.xo, noBox.yo, noBox.w, noBox.h);
-			timeFont.drawMultiLine(spriteBatch, "Yes", yesBox.xo + 5, 
-					   				yesBox.ye - 10, yesBox.w - 10, 
-					   				BitmapFont.HAlignment.CENTER);
-			
-			timeFont.drawMultiLine(spriteBatch, "No", noBox.xo + 5, 
-	   								noBox.ye - 10, noBox.w - 10, 
-	   								BitmapFont.HAlignment.CENTER);
-			
-			timeFont.setColor(Color.RED);
-		}
-		spriteBatch.end();
-		
-		// Sleep to fix frame rate, save battery
-		long renderTime = System.currentTimeMillis() - start;
-		if (renderTime < FrameTime) {
-			try {
-				Thread.sleep(FrameTime-renderTime);
-			} catch (InterruptedException e) {}
-		}
 	}
 
-	@Override
-	public void resize(int w, int h) {
-		Minesweeper.Log.debug("Resize");
-
-	}
-
-	@Override
-	public void resume() {
-		Minesweeper.Log.debug("Resume...");
-		Gdx.input.setCatchBackKey(true);
-		Gdx.graphics.getGL10().glClearColor(.9f, .9f, .9f, 1f);
-		/*
-		Preferences prefs = Gdx.app.getPreferences("a-minesweeper");
-		if (prefs.contains("matrix")) {
-			matrix = fromString(prefs.getString("matrix"));
-		}
-		*/
-	}
-
-	@Override
-	public void show() {
-		Minesweeper.Log.debug("Show");
-		Gdx.input.setCatchBackKey(true);
-		Gdx.graphics.getGL10().glClearColor(.9f, .9f, .9f, 1f);	
-	}
-	
 	private void update(float delta) {
 		Input in = Gdx.app.getInput();
 		
@@ -358,6 +394,7 @@ public class GameScreen implements Screen {
 			dieAnimation.update(delta);
 			if (dieAnimation.isDone()) displayExp = false;
 		}
+		
 		
 		if (in.justTouched()) {
 			int x = in.getX();
@@ -400,6 +437,16 @@ public class GameScreen implements Screen {
 					if (LOSE != gameState && numSquares <= 0) {
 						gameState = WIN;
 						isTimerRunning = false;
+						if (scores.size() < MAX_SCORES || time < scores.last()) {
+							scores.add((int)time);
+							Integer[] values = scores.toArray(new Integer[0]);
+							for (int i=0; i<6 && i<values.length; i++) {
+								prefs.putInteger("score"+i, values[i]);
+							}
+							
+							prefs.flush();
+						}
+						showHighScores = true;
 					}
 				}
 				else if (flagMode && value > 9) {
@@ -434,6 +481,7 @@ public class GameScreen implements Screen {
 		time = 0;
 		isTimerRunning = false;
 		displayExp = false;
+		showHighScores = false;
 	}
 	
 	/**
@@ -555,31 +603,5 @@ public class GameScreen implements Screen {
 				//atlas.findRegion("Explosion15"),
 		};
 		expAnimation = new Animation(FRAME_TIME, textures);
-	}
-
-	private static String toString(int[][] matrix) {
-		StringBuilder sb = new StringBuilder();
-		
-		for (int i=0; i<matrix.length; i++) {
-			for (int j=0; j<matrix[i].length; j++) {
-				sb.append(matrix[i][j]);
-				sb.append(",");
-			}
-			sb.append(";");
-		}
-		return sb.toString();
-	}
-	
-	private static int[][] fromString(String info) {
-		String[] lines = info.split(";");
-		int[][] matrix = new int[lines.length][];
-		for (int i=0; i<lines.length; i++) {
-			String[] cells = lines[i].split(",");
-			matrix[i] = new int[cells.length];
-			for (int j = 0; j < cells.length; j++) {
-				matrix[i][j] = Integer.parseInt(cells[j]);
-			}
-		}
-		return matrix;
 	}
 }
