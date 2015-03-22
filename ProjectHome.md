@@ -1,0 +1,1 @@
+Simple minesweeper game for android and desktop, based on libgdx
